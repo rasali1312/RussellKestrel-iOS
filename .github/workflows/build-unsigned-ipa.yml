@@ -1,0 +1,49 @@
+name: Build Russell Kestrel IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show Xcode
+        run: xcodebuild -version
+
+      - name: Resolve packages
+        run: xcodebuild -project RussellKestrel.xcodeproj -scheme RussellKestrel -resolvePackageDependencies
+
+      - name: Archive unsigned app
+        run: |
+          xcodebuild \
+            -project RussellKestrel.xcodeproj \
+            -scheme RussellKestrel \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/RussellKestrel.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$RUNNER_TEMP/RussellKestrel.xcarchive/Products/Applications/RussellKestrel.app" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -qry RussellKestrel-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: RussellKestrel-unsigned-IPA
+          path: ${{ runner.temp }}/RussellKestrel-unsigned.ipa
+          retention-days: 7
