@@ -15,7 +15,7 @@ targets:
   RussellKestrel:
     type: application
     platform: iOS
-     bundleId: com.russell.kestrelviewer
+    
     sources:
       - path: Sources/RussellKestrel
     settings:
