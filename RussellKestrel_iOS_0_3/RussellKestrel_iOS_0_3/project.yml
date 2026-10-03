@@ -1,0 +1,34 @@
+name: RussellKestrel
+options:
+  bundleIdPrefix: com.russell
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+targets:
+  RussellKestrel:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/RussellKestrel
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.russell.kestrelviewer
+        INFOPLIST_FILE: Sources/RussellKestrel/Resources/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "5.9"
+    dependencies:
+      - package: VLCKit
+        product: VLCKit
+packages:
+  VLCKit:
+    url: https://github.com/videolan/vlckit.git
+    exactVersion: 4.0.0-a22
+schemes:
+  RussellKestrel:
+    build:
+      targets:
+        RussellKestrel: all
+    archive:
+      config: Release
