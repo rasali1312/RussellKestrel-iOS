@@ -1,1 +1,96 @@
+name: Build Unsigned IPA
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show generated project
+        run: |
+          echo "Files:"
+          find . -maxdepth 2 -type f | sort
+          echo ""
+          echo "Xcode projects:"
+          find . -name "*.xcodeproj" -maxdepth 3
+
+      - name: Find project and scheme
+        run: |
+          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+
+          if [ -z "$PROJECT" ]; then
+            echo "ERROR: No Xcode project was generated."
+            exit 1
+          fi
+
+          echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
+
+          xcodebuild -list -project "$PROJECT"
+
+          SCHEME=$(xcodebuild -list -project "$PROJECT" 2>/dev/null | \
+            sed -n '/Schemes:/,/^$/p' | \
+            tail -n +2 | \
+            sed '/^[[:space:]]*$/d' | \
+            head -n 1 | \
+            xargs)
+
+          if [ -z "$SCHEME" ]; then
+            echo "ERROR: No Xcode scheme found."
+            exit 1
+          fi
+
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          echo "Using project: $PROJECT"
+          echo "Using scheme: $SCHEME"
+
+      - name: Build unsigned iOS app
+        run: |
+          rm -rf build
+          mkdir -p build
+
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Create unsigned IPA
+        run: |
+          APP_PATH=$(find build/DerivedData/Build/Products -type d -name "*.app" | head -n 1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app was produced."
+            find build -type f | head -n 100
+            exit 1
+          fi
+
+          echo "Found app: $APP_PATH"
+
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP_PATH" Payload/
+
+          zip -r Russell-Kestrel-Unsigned.ipa Payload
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Russell-Kestrel-Unsigned-IPA
+          path: Russell-Kestrel-Unsigned.ipa
+          if-no-files-found: error
